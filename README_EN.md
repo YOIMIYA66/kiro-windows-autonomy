@@ -22,16 +22,6 @@
   <a href="https://github.com/YOIMIYA66/AI-Net-Guard"><img src="https://img.shields.io/badge/Companion-AI--Net--Guard-8b5cf6?logo=shield&logoColor=white" alt="Companion AI-Net-Guard"></a>
 </p>
 
-<p>
-  <a href="#-one-shot-ai-setup-prompt">🚀 AI Setup Prompt</a> •
-  <a href="#-why-kiro-windows-autonomy">💡 Why This Repo</a> •
-  <a href="#-permission-flow--architecture">📐 Flow & Architecture</a> •
-  <a href="#-three-layer-guardrail-matrix">🛡️ Guardrail Matrix</a> •
-  <a href="#-steering-rules">🧭 Steering Rules</a> •
-  <a href="#-manual-installation">📦 Manual Install</a> •
-  <a href="#-verification--regression-tests">🧪 Regression Tests</a>
-</p>
-
 </div>
 
 ---

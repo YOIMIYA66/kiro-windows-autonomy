@@ -22,16 +22,6 @@
   <a href="https://github.com/YOIMIYA66/AI-Net-Guard"><img src="https://img.shields.io/badge/Companion-AI--Net--Guard-8b5cf6?logo=shield&logoColor=white" alt="Companion AI-Net-Guard"></a>
 </p>
 
-<p>
-  <a href="#-一键安装-ai-agent-prompt">🚀 一键 AI 安装</a> •
-  <a href="#-核心痛点与对比-why-kiro-windows-autonomy">💡 核心痛点与对比</a> •
-  <a href="#-权限决策流与架构-architecture">📐 决策流与架构</a> •
-  <a href="#-三维防护规则矩阵-guardrail-matrix">🛡️ 防护规则矩阵</a> •
-  <a href="#-steering-工程规范-steering-rules">🧭 Steering 规范</a> •
-  <a href="#-分步手动安装指南-manual-installation">📦 手动安装</a> •
-  <a href="#-规则校验与回归测试-regression-tests">🧪 回归测试</a>
-</p>
-
 </div>
 
 ---
