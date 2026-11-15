@@ -61,37 +61,15 @@
 
 Kiro 按 **`deny > ask > allow > evaluate`** 优先级裁决工具调用。本配置在基线放行所有常规动作的同时，用显式 `ask` 清单拦截高危操作：
 
-```mermaid
-flowchart LR
-    Call["⚡Kiro工具调用"]
-
-    subgraph Guardrails ["🛡️ permissions.yaml 三维护栏"]
-        direction TB
-        R["🔑 fs_read\n密钥 · .env · 凭据"]
-        W["💾 fs_write\n凭据 · Windows 系统目录"]
-        S["💻 shell\n删除 · 注册表 · 防火墙 · 危险 Git\n含全小写镜像 & cmd/pwsh 包装"]
-    end
-
-    Ask["🛑 弹窗确认 (ask)\n高优先级拦截"]
-    Allow["✅ 静默放行 (allow)\n日常读写 · 构建 · 只读诊断"]
-    Eval["🔍 默认分类器 (evaluate)\n不在 all: allow 范围内"]
-
-    Call -- "命中任一护栏" --> Guardrails
-    Guardrails --> Ask
-    Call -- "未命中 · 走基线 all: allow" --> Allow
-    Call -. "sandbox_network" .-> Eval
-
-    classDef entryStyle fill:#1e293b,stroke:#3b82f6,stroke-width:2px,color:#ffffff
-    classDef guardStyle fill:#eff6ff,stroke:#3b82f6,stroke-width:1.5px,color:#1e3a8a
-    classDef askStyle fill:#991b1b,stroke:#ef4444,stroke-width:2px,color:#ffffff
-    classDef allowStyle fill:#065f46,stroke:#10b981,stroke-width:2px,color:#ffffff
-    classDef evalStyle fill:#334155,stroke:#94a3b8,stroke-width:1.5px,color:#ffffff
-    class Call entryStyle
-    class R,W,S guardStyle
-    class Ask askStyle
-    class Allow allowStyle
-    class Eval evalStyle
-```
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./docs/archify-workflow-dark.png" />
+    <img src="./docs/archify-workflow-light.png" alt="Kiro Windows Autonomy Decision Flow" width="920" />
+  </picture>
+</p>
+<p align="center">
+  <sub>💡 <i>架构流程图由 <a href="https://github.com/tt-a1i/archify">Archify</a> 生成 · 本地浏览器可直接打开 <a href="./docs/kiro-workflow.html"><code>docs/kiro-workflow.html</code></a> 体验完整交互式链路追踪</i></sub>
+</p>
 
 ### ⚡ 实际效果速览
 

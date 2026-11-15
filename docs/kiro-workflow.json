@@ -1,0 +1,68 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Kiro Windows Autonomy Decision Flow",
+    "animation": "trace",
+    "visual_preset": "signal-flow",
+    "quality_profile": "showcase",
+    "output": "kiro-workflow.html"
+  },
+  "lanes": [
+    { "id": "agent", "label": "Kiro Agent Activity" },
+    { "id": "guardrails", "label": "permissions.yaml Guardrails" },
+    { "id": "decision", "label": "Policy Resolution", "variant": "exception" },
+    { "id": "outcome", "label": "Execution Outcome" }
+  ],
+  "phases": [
+    { "id": "invoke", "label": "1. Tool Call", "fromCol": 0, "toCol": 1 },
+    { "id": "inspect", "label": "2. Rule Match", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "settle", "label": "3. Resolution", "fromCol": 4, "toCol": 5 }
+  ],
+  "groups": [
+    { "id": "guard_group", "label": "Static Rule Inspection", "lane": "guardrails", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "settle_group", "label": "Deterministic Settlement", "lane": "decision", "fromCol": 3, "toCol": 4, "variant": "security" }
+  ],
+  "mainPath": ["tool_call", "network_check", "inspect_rule", "guard_rules", "gate", "ask_prompt", "user_confirm"],
+  "nodes": [
+    { "id": "tool_call", "lane": "agent", "col": 0, "type": "frontend", "label": "Tool Invocation", "sublabel": "fs_read / fs_write / shell", "tag": "agent request", "width": 140 },
+    { "id": "network_check", "lane": "agent", "col": 1, "type": "cloud", "label": "sandbox_network?", "sublabel": "special capability", "width": 140 },
+    { "id": "inspect_rule", "lane": "guardrails", "col": 2, "type": "security", "label": "Rule Matcher", "sublabel": "case-sensitive glob", "tag": "deny > ask > allow", "width": 140 },
+    { "id": "guard_rules", "lane": "guardrails", "col": 3, "type": "database", "label": "Active Ask Rules", "sublabel": "secrets, OS dirs, destructive", "tag": "lowercase mirrors", "width": 140 },
+    { "id": "gate", "lane": "decision", "col": 3, "type": "security", "label": "Rule Match?", "sublabel": "in match list & not excluded", "width": 140 },
+    { "id": "ask_prompt", "lane": "decision", "col": 4, "type": "security", "label": "Prompt User (ask)", "sublabel": "high-priority brake", "tag": "explicit consent", "width": 140 },
+    { "id": "allow_pass", "lane": "outcome", "col": 4, "type": "backend", "label": "Silent Allow", "sublabel": "baseline all: allow", "tag": "zero interruption", "width": 140 },
+    { "id": "eval_fallback", "lane": "outcome", "col": 2, "type": "external", "label": "Evaluate (ML)", "sublabel": "probabilistic classifier", "tag": "network only", "width": 140 },
+    { "id": "user_confirm", "lane": "outcome", "col": 5, "type": "frontend", "label": "Execution / Abort", "sublabel": "manual approval result", "width": 140 }
+  ],
+  "edges": [
+    { "id": "e_net", "from": "tool_call", "to": "network_check", "variant": "default" },
+    { "id": "e_net_yes", "from": "network_check", "to": "eval_fallback", "label": "network", "variant": "dashed" },
+    { "id": "e_net_no", "from": "network_check", "to": "inspect_rule", "label": "standard cap", "variant": "emphasis" },
+    { "id": "e_rules", "from": "inspect_rule", "to": "guard_rules", "variant": "default" },
+    { "id": "e_gate", "from": "guard_rules", "to": "gate", "variant": "default" },
+    { "id": "e_matched", "from": "gate", "to": "ask_prompt", "label": "matched ask", "variant": "security" },
+    { "id": "e_unmatched", "from": "gate", "to": "allow_pass", "label": "unmatched", "variant": "emphasis" },
+    { "id": "e_confirm", "from": "ask_prompt", "to": "user_confirm", "label": "user decides", "variant": "default" }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "High-Risk Guardrails (ask)",
+      "items": [
+        "fs_read: .env, ~/.ssh, ~/.aws, GitHub CLI, private keys",
+        "fs_write: Credentials, C:/Windows, Program Files, OS dirs",
+        "shell: rm, del, format, Set-Acl, firewall, netsh, git reset/push -f"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Rule-Driven Autonomy (allow)",
+      "items": [
+        "Blanket allow settles routine coding, builds, and tests",
+        "Probabilistic evaluate classifier bypassed for local tools",
+        "Lowercase mirrors mitigate known case-sensitivity bypasses"
+      ]
+    }
+  ]
+}
