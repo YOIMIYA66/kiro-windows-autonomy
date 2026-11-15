@@ -68,7 +68,7 @@ Kiro 按 **`deny > ask > allow > evaluate`** 优先级裁决工具调用。本�
   </picture>
 </p>
 <p align="center">
-  <sub>💡 <i>架构流程图由 <a href="https://github.com/tt-a1i/archify">Archify</a> 生成 · 本地浏览器可直接打开 <a href="./docs/kiro-workflow.html"><code>docs/kiro-workflow.html</code></a> 体验完整交互式链路追踪</i></sub>
+  <sub>💡 <i>架构流程图由 <a href="https://github.com/tt-a1i/archify">Archify</a> 生成 · 本地浏览器可直接打开 <a href="./docs/kiro-workflow-zh.html"><code>docs/kiro-workflow-zh.html</code></a> 体验完整交互式链路追踪</i></sub>
 </p>
 
 ### ⚡ 实际效果速览

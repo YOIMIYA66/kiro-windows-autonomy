@@ -63,12 +63,12 @@ Kiro resolves tool calls with **`deny > ask > allow > evaluate`** precedence. No
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./docs/archify-workflow-dark.png" />
-    <img src="./docs/archify-workflow-light.png" alt="Kiro Windows Autonomy Decision Flow" width="920" />
+    <source media="(prefers-color-scheme: dark)" srcset="./docs/archify-workflow-dark-en.png" />
+    <img src="./docs/archify-workflow-light-en.png" alt="Kiro Windows Autonomy Decision Flow" width="920" />
   </picture>
 </p>
 <p align="center">
-  <sub>💡 <i>Architecture diagram rendered by <a href="https://github.com/tt-a1i/archify">Archify</a> · Open <a href="./docs/kiro-workflow.html"><code>docs/kiro-workflow.html</code></a> in your browser for the full interactive trace</i></sub>
+  <sub>💡 <i>Architecture diagram rendered by <a href="https://github.com/tt-a1i/archify">Archify</a> · Open <a href="./docs/kiro-workflow-en.html"><code>docs/kiro-workflow-en.html</code></a> in your browser for the full interactive trace</i></sub>
 </p>
 
 ### ⚡ In Action

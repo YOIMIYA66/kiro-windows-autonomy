@@ -1,0 +1,68 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Kiro Windows 权限与自主权决策流",
+    "animation": "trace",
+    "visual_preset": "signal-flow",
+    "quality_profile": "showcase",
+    "output": "kiro-workflow-zh.html"
+  },
+  "lanes": [
+    { "id": "agent", "label": "Kiro Agent 行为" },
+    { "id": "guardrails", "label": "permissions.yaml 规则防线" },
+    { "id": "decision", "label": "权限裁决 (Policy Resolution)", "variant": "exception" },
+    { "id": "outcome", "label": "执行结果 (Outcome)" }
+  ],
+  "phases": [
+    { "id": "invoke", "label": "1. 工具调用", "fromCol": 0, "toCol": 1 },
+    { "id": "inspect", "label": "2. 静态匹配", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "settle", "label": "3. 确定性裁决", "fromCol": 4, "toCol": 5 }
+  ],
+  "groups": [
+    { "id": "guard_group", "label": "静态规则拦截链", "lane": "guardrails", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "settle_group", "label": "权限裁决网关", "lane": "decision", "fromCol": 3, "toCol": 4, "variant": "security" }
+  ],
+  "mainPath": ["tool_call", "network_check", "inspect_rule", "guard_rules", "gate", "ask_prompt", "user_confirm"],
+  "nodes": [
+    { "id": "tool_call", "lane": "agent", "col": 0, "type": "frontend", "label": "工具调用请求", "sublabel": "fs_read / fs_write / shell", "tag": "Agent 发起", "width": 140 },
+    { "id": "network_check", "lane": "agent", "col": 1, "type": "cloud", "label": "网络沙箱检查", "sublabel": "sandbox_network?", "tag": "特殊能力", "width": 140 },
+    { "id": "inspect_rule", "lane": "guardrails", "col": 2, "type": "security", "label": "规则匹配引擎", "sublabel": "大小写敏感通配符", "tag": "deny > ask > allow", "width": 140 },
+    { "id": "guard_rules", "lane": "guardrails", "col": 3, "type": "database", "label": "高危拦截清单", "sublabel": "凭据/系统盘/破坏性指令", "tag": "大小写全镜像", "width": 140 },
+    { "id": "gate", "lane": "decision", "col": 3, "type": "security", "label": "命中高危规则?", "sublabel": "匹配拦截列表且未排除", "width": 140 },
+    { "id": "ask_prompt", "lane": "decision", "col": 4, "type": "security", "label": "弹窗拦截确认 (ask)", "sublabel": "最高优先级制动", "tag": "需显式确认", "width": 140 },
+    { "id": "allow_pass", "lane": "outcome", "col": 4, "type": "backend", "label": "静默放行 (allow)", "sublabel": "全基线自动静默放行", "tag": "零干扰自主开发", "width": 140 },
+    { "id": "eval_fallback", "lane": "outcome", "col": 2, "type": "external", "label": "默认分类器 (ML)", "sublabel": "evaluate 概率式裁决", "tag": "仅对网络生效", "width": 140 },
+    { "id": "user_confirm", "lane": "outcome", "col": 5, "type": "frontend", "label": "执行 / 阻断", "sublabel": "开发者人工裁决结果", "width": 140 }
+  ],
+  "edges": [
+    { "id": "e_net", "from": "tool_call", "to": "network_check", "variant": "default" },
+    { "id": "e_net_yes", "from": "network_check", "to": "eval_fallback", "label": "网络请求", "variant": "dashed" },
+    { "id": "e_net_no", "from": "network_check", "to": "inspect_rule", "label": "本地常规工具", "variant": "emphasis" },
+    { "id": "e_rules", "from": "inspect_rule", "to": "guard_rules", "variant": "default" },
+    { "id": "e_gate", "from": "guard_rules", "to": "gate", "variant": "default" },
+    { "id": "e_matched", "from": "gate", "to": "ask_prompt", "label": "命中高危 (ask)", "variant": "security" },
+    { "id": "e_unmatched", "from": "gate", "to": "allow_pass", "label": "未命中规则", "variant": "emphasis" },
+    { "id": "e_confirm", "from": "ask_prompt", "to": "user_confirm", "label": "人工裁决", "variant": "default" }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "高危强弹窗拦截 (ask 规则)",
+      "items": [
+        "fs_read: .env, ~/.ssh, ~/.aws, GitHub CLI, 证书私钥",
+        "fs_write: 凭据文件, C:/Windows, Program Files, 系统敏感目录",
+        "shell: rm, del, format, Set-Acl, 防火墙/网络重置, git reset/push -f"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "确定性放行与自主权设计",
+      "items": [
+        "基线全部声明 allow：编码、日常编译、测试与 git 提交全静默放行",
+        "跳过不稳定 ML 分类器：本地工具调用绝不走 evaluate 随机拦截",
+        "Windows 路径全镜像：大写盘符与小写盘符均做规则双向镜像防御"
+      ]
+    }
+  ]
+}

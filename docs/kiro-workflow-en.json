@@ -6,7 +6,7 @@
     "animation": "trace",
     "visual_preset": "signal-flow",
     "quality_profile": "showcase",
-    "output": "kiro-workflow.html"
+    "output": "kiro-workflow-en.html"
   },
   "lanes": [
     { "id": "agent", "label": "Kiro Agent Activity" },
