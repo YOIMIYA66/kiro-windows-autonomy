@@ -14,11 +14,15 @@ PRIORITY = {"deny": 3, "ask": 2, "allow": 1, "evaluate": 0}
 
 def matches_rule(rule: dict, capability: str, target: str) -> bool:
     rule_cap = rule.get("capability")
-    if rule_cap not in ("all", capability):
+    if rule_cap == "all":
+        # Per https://kiro.dev/docs/permissions/, `capability: all` excludes `sandbox_network`.
+        if capability == "sandbox_network":
+            return False
+    elif rule_cap != capability:
         return False
     patterns = rule.get("match")
     if not patterns:
-        return rule_cap == "all" or capability == rule_cap
+        return True
     if not any(fnmatch.fnmatchcase(target, pat) for pat in patterns):
         return False
     excludes = rule.get("exclude") or []
@@ -67,6 +71,10 @@ class PermissionsRegressionTests(unittest.TestCase):
             ),
             "Baseline all: allow rule is missing",
         )
+
+    def test_all_capability_excludes_sandbox_network(self) -> None:
+        # `capability: all` must not implicitly grant `sandbox_network`.
+        self.assertEffect("sandbox_network", "example.com:443", "evaluate")
 
     def test_fs_read_and_write_credential_parity(self) -> None:
         sensitive_paths = [
