@@ -27,13 +27,13 @@
 ---
 
 > [!IMPORTANT]
-> **定位说明**：本配置是**防误操作的便利性护栏（convenience guardrail）**，而非系统级安全沙箱或硬隔离边界。系统层网络隔离与防泄露请搭配操作系统权限控制或内核防火墙（如 [AI-Net-Guard](https://github.com/YOIMIYA66/AI-Net-Guard)）使用。
+> **定位说明**：本配置是**防误操作的便利性护栏（convenience guardrail）**，而非系统级安全沙箱或硬隔离边界。系统层网络隔离请搭配操作系统权限或内核防火墙（如 [AI-Net-Guard](https://github.com/YOIMIYA66/AI-Net-Guard)）。
 
 ---
 
-## 🚀 一键安装 (AI Agent Prompt)
+## 🚀 一键安装：复制给 AI 自动部署
 
-如果你正在使用 **Kiro**（或其他具备终端/文件操作能力的 AI 编程助手），可以直接点击右上角复制下方提示词发给 AI，让它自动完成**备份原有配置 → 拉取本仓库 → 按你本机工具链定制 → 语法与测试校验**：
+如果你正在使用 **Kiro**（或其他本地 AI 编程助手），直接复制下方提示词发给它，即可自动完成**备份原有配置 → 拉取仓库 → 按本机环境定制 → 校验测试**：
 
 ```text
 请帮我安装并适配 https://github.com/YOIMIYA66/kiro-windows-autonomy 仓库中的 Kiro Windows 配置，按以下顺序执行：
@@ -52,70 +52,69 @@
 
 ---
 
-## 💡 核心痛点与对比 (Why Kiro Windows Autonomy)
+## 💡 核心优势
 
-在 Windows 11 下使用 Kiro 进行日常高频开发时，默认策略与通用 prompt 往往会遇到四类典型摩擦。本仓库的对比收益如下：
-
-| 维度 | 默认 `approve-for-me` / 无 Windows 规范 | 使用 **Kiro Windows Autonomy** 后 |
+| 痛点 | 默认行为 | 使用 **Kiro Windows Autonomy** 后 |
 | :--- | :--- | :--- |
-| **日常开发流** | 概率分类器（`evaluate`）在构建、只读排查或连续改文件时频繁弹出确认，打断心流 | 基线 `capability: all -> allow`（不含 `sandbox_network`）让**只读查询与常规开发零打扰放行**，仅高危动作刹车 |
-| **凭据与 OS 保护** | 依赖模型/分类器临时判断，`.env`、SSH 私钥、GitHub CLI Token 等边界不透明 | `fs_read` + `fs_write` **双层显式 `ask` 清单**守护密钥、凭据、Windows 系统目录与可选服务目录 |
-| **PowerShell 大小写陷阱** | Kiro 的 `shell` 规则区分大小写；配置 `Set-Acl *` 会被全小写 `set-acl` 静默穿过 | 内置常用高危 PowerShell Cmdlet 的**全小写镜像**与 `cmd /c` / `/C` / `/k` / `/K` 规则，**缓解已知全小写绕过** |
-| **PS 5.1/7 与中文编码** | AI 常写出仅 PS 7 支持的 `??`/`&&` 或无 BOM 中文 `.ps1`，在中文 Windows CP936 下直接乱码报错 | Steering 强制兼容 **PS 5.1**、明确 **UTF-8 BOM / ASCII `.bat` CRLF** 规范，并要求运行 `PSScriptAnalyzer` |
-| **网络排障误操作** | 下载超时或连不上 GitHub 时，AI 常“好心”去改防火墙、DNS、路由表、hosts 或镜像源 | `windows-environment.md` + `shell` 拦截双保险，**只读网络命令静默放行，写操作一律拦停汇报** |
-| **规则可维护性** | 手改数百行 YAML 后无法确认是否写错 glob 导致护栏静默失效 | 自带 `unittest` **9 项回归测试 + GitHub Actions CI**，每次改动自动校验规则命中率 |
+| **弹窗打断** | 概率分类器（`evaluate`）频繁打断构建与只读排查 | 基线 `all: allow` 让**日常开发与只读查询零打扰放行**，仅高危动作确认 |
+| **凭据边界** | 敏感文件与系统目录边界不透明 | `fs_read` + `fs_write` **显式 `ask` 清单**守护密钥、Token 与 OS 目录 |
+| **大小写绕过** | `shell` 规则区分大小写，`Set-Acl *` 漏掉小写 `set-acl` | 内置常用 PowerShell **全小写镜像**与 `cmd /c` / `/C` 拦截，缓解已知绕过 |
+| **Windows 编码/语法** | AI 写出 PS 7 语法或无 BOM 中文脚本，CP936 下乱码报错 | 强制兼容 **PS 5.1**、**UTF-8 BOM / ASCII `.bat`**，并跑 `PSScriptAnalyzer` |
+| **规则可维护** | 手改 YAML 后无法验证护栏是否悄然失效 | 自带 **9 项 `unittest` 回归测试 + GitHub Actions CI** 自动守护 |
 
 ---
 
-## 📐 权限决策流与架构 (Architecture)
+## 📐 权限工作原理
 
-Kiro 对每次工具调用按 **`deny > ask > allow > evaluate`** 的优先级求值。本配置通过基线放行接管 `evaluate`，让确定性的 `ask` 规则成为可控护栏：
+Kiro 按 **`deny > ask > allow > evaluate`** 优先级裁决工具调用。本配置在基线放行所有常规动作的同时，用显式 `ask` 清单拦截高危操作：
 
 ```mermaid
 flowchart LR
-    A["Kiro Tool Call"] --> B{"Capability == sandbox_network?"}
-    B -- "Yes (excluded from all)" --> C["Fall back to evaluate"]
-    B -- "No (fs_read / fs_write / shell / ...)" --> D{"Matches explicit ask rules\nand NOT in exclude?"}
-    D -- "Yes (Secrets, OS dirs, destructive shell,\nlowercase mirrors, wrappers, git force)" --> E["Prompt User (ask)"]
-    D -- "No (Normal code, .env.example,\ngit restore --staged, Get-*, tests)" --> F["Hits baseline all: allow\nSilent Execution (allow)"]
+    Call(["⚡ Kiro 工具调用"]) --> Check{"命中高危拦截规则?"}
+    Check -- "是 · 密钥 / 系统目录 / 高危命令" --> Ask["🛑 弹窗确认 (ask)"]
+    Check -- "否 · 日常读写 / 构建 / 只读查询" --> Allow["✅ 静默放行 (allow)"]
+    Call -. "sandbox_network" .-> Eval["🔍 默认分类器 (evaluate)"]
+
+    classDef askStyle fill:#fef2f2,stroke:#ef4444,stroke-width:2px,color:#991b1b
+    classDef allowStyle fill:#ecfdf5,stroke:#10b981,stroke-width:2px,color:#065f46
+    classDef evalStyle fill:#f8fafc,stroke:#64748b,stroke-width:1.5px,color:#334155
+    class Ask askStyle
+    class Allow allowStyle
+    class Eval evalStyle
 ```
 
-> [!WARNING]
-> **关于大小写敏感与静态匹配局限（必读）**
->
-> 1. **缓解已知全小写绕过，但非绝对穷举**：实测 Kiro 的 `shell` 匹配区分大小写，而 PowerShell 与 `cmd` 不区分大小写。[`settings/permissions.yaml`](settings/permissions.yaml) 末尾镜像了常见 PowerShell Cmdlet 的全小写写法与 `cmd /C`、`/K` 变体，用来缓解常规全小写绕过；但无法穷举所有任意混合大小写组合（如 `sEt-aCl`、`CmD /c`）。
-> 2. **脚本与变量间接传参不可见**：规则仅匹配命令行文本本身，无法审计 `.ps1` / `.bat` / `.py` 脚本内部逻辑、全路径/别名调用，或通过变量拼接传递的参数（`$k = 'HKLM:\...'; Set-Acl $k`）。
-> 3. **明确排除项**：按 [Kiro 官方权限文档](https://kiro.dev/docs/permissions/)，`capability: all` **不包含 `sandbox_network`**。
-
 ---
 
-## 🛡️ 三维防护规则矩阵 (Guardrail Matrix)
+## 🛡️ 拦截了什么？
 
-| 能力维度 | 保护类别 | 典型拦截目标 (`effect: ask`) | 静默放行例外 (`exclude` / `allow`) |
-| :--- | :--- | :--- | :--- |
-| **`fs_read`** | 密钥与云/Git 凭据 | `~/.ssh/**`、`~/.aws/**`、`~/.kube/**`、`~/.docker/config.json`、`**/.env`、`**/.env.*`、`**/*.pem\|key\|pfx\|p12`、`**/.git-credentials`、`~/AppData/Roaming/GitHub CLI/**`、`~/.config/gh/**` | `**/.env.example`、常规源码与文档 |
-| **`fs_write`** | 凭据、OS 目录与自定义服务 | 以上全部凭据路径 + `~/.gitconfig`、`C:/Windows/**`、`C:/Program Files/**`、`C:/Program Files (x86)/**`、`C:/ProgramData/**`（支持按需取消注释 `C:/AI-Net-Guard/**`） | `**/.env.example`、项目工作区源码（可放开如 `logs/**`） |
-| **`shell`** | 文件删除与磁盘启动 | `rm` / `del` / `erase` / `rd` / `Remove-Item` / `remove-item` / `Clear-RecycleBin` / `robocopy * /MIR\|/PURGE`、`format` / `diskpart` / `bcdedit` / `shutdown` | 普通文件查看、编译与测试运行 |
-| **`shell`** | 注册表、ACL、服务与计划任务 | `reg add\|delete\|import\|restore`、`Set-Acl` / `set-acl` / `icacls` / `takeown`、`sc` / `Set-Service` / `Stop-Service` / `schtasks /delete\|/change` | 只读查询（`reg query`、`Get-Service`、`Get-Acl`） |
-| **`shell`** | 防火墙、DNS、路由与代理 | `New-NetFirewallRule` / `Set-NetFirewallRule` / `netsh advfirewall`、`Set-DnsClient*` / `New-NetRoute` / `Set-NetAdapter` / `netsh int\|winhttp set`（均含小写镜像） | 只读诊断（`Get-NetFirewallRule`、`netsh ... show`） |
-| **`shell`** | 危险 Git 与包发布 | `git reset --hard`、`git clean`、`git push --force\|-f\|--mirror\|--delete`、`git branch -D`、`git restore`（含 `--worktree`）、`npm publish`、`gh repo delete` | `git restore --staged *`、`git status` / `diff` / `commit` |
-| **`shell`** | 进程终止、提权与内联包装 | `taskkill` / `Stop-Process` / `stop-process`、`Start-Process *RunAs*`、`powershell` / `pwsh`（`-Command` / `-c` / `-EncodedCommand` / `-enc`）、`cmd`（`/c` / `/C` / `/k` / `/K`） | 直接在当前 `pwsh` 会话执行的常规命令 |
-
----
-
-## 🧭 Steering 工程规范 (Steering Rules)
-
-[`steering/`](steering/) 中的四份规范共同约束 AI 在 Windows 下的编码、排障与交付质量：
-
-| 规范文件 | 加载策略 (`inclusion`) | 核心约束亮点 |
+| 能力维度 | 弹窗确认 (`ask`) | 静默放行 (`allow` / `exclude`) |
 | :--- | :--- | :--- |
-| [`engineering-principles.md`](steering/engineering-principles.md) | `always` | **先复现取证再改代码**；严禁空 `catch {}` / `except: pass` / 无故 `2>$null` 吞错；禁止改测试凑通过；替换配置/二进制前先备份可回滚；Git 禁止直推 `main` 与提交密钥 |
-| [`powershell-and-batch.md`](steering/powershell-and-batch.md) | `fileMatch` (`*.ps1`, `*.bat` 等) | **强制兼容 Windows PowerShell 5.1**（禁用 `??`、`&&`、`-Encoding utf8NoBOM`）；明确 `.ps1` 中文需 UTF-8 with BOM、`.bat` 需纯 ASCII + CRLF；每次改完 `.ps1` 必跑 `Parser::ParseFile` 与 `PSScriptAnalyzer` |
-| [`windows-environment.md`](steering/windows-environment.md) | `always` | **禁止把命令包进 `pwsh -Command` / `cmd /c`**（避免触发无意义的包装器审批弹窗）；解释中文终端 CP936 (GBK) 乱码排查方式；划定工具链版本来源、防火墙与代理目录只读边界 |
-| [`personal-preferences.md`](steering/personal-preferences.md) | `always` | **默认简体中文回复**（保留代码、命令、路径与报错原文）；修改 ≥3 个文件或涉及架构/系统设置前先出方案；禁止顺手重构；结项必报改动、验证命令与未验证项 |
+| **读取凭据 (`fs_read`)** | SSH / AWS / Kube / Docker 凭据、`.env`、私钥证书（`.pem` / `.key` / `.pfx` / `.p12`）、Git 与 GitHub CLI 凭据 | `.env.example`、常规项目源码与文档 |
+| **写入系统 (`fs_write`)** | 上述全部凭据、`~/.gitconfig`、`C:/Windows`、`Program Files`、`ProgramData`（及可选保护目录） | `.env.example`、项目工作区源码（可按需放开 `logs/**`） |
+| **高危命令 (`shell`)** | 文件销毁（`rm` / `Remove-Item` / `robocopy /MIR`）、磁盘与关机、注册表/ACL（`Set-Acl` / `icacls`）、服务与防火墙/DNS/路由修改（含常见小写镜像） | `Get-*`、`netsh ... show`、`reg query` 等只读诊断及编译测试 |
+| **Git 与包装 (`shell`)** | `git reset --hard` / `clean` / `push --force` / `restore --worktree`、`taskkill` / `Stop-Process`、`RunAs` 提权、`powershell -Command/-EncodedCommand`、`cmd /c` & `/C` | `git restore --staged *`、`git status` / `diff` / `commit` |
+
+> [!WARNING]
+> **边界与局限（非安全沙箱）**
+> - **大小写限制**：全小写镜像仅用于**缓解已知的全小写绕过**；由于 Kiro 的匹配器区分大小写，任意混合大小写（如 `sEt-aCl`、`CmD /c`）仍可能留下变体。
+> - **静态文本匹配**：仅检查命令字符串本身，无法审计 `.ps1` / `.bat` / `.py` 脚本内部、全路径/别名调用或变量间接传参（如 `Set-Acl $k`）。
+> - **网络隔离独立**：按 [Kiro 官方权限文档](https://kiro.dev/docs/permissions/)，`capability: all` **不包含 `sandbox_network`**。
+
+---
+
+## 🧭 Steering 工程规范
+
+[`steering/`](steering/) 中的四份规范共同约束 AI 在 Windows 下的编码、排障与交付习惯：
+
+| 规范文件 | 生效方式 | 核心规范 |
+| :--- | :--- | :--- |
+| [`engineering-principles.md`](steering/engineering-principles.md) | `always` | 先复现取证再修 Bug；禁止空 `catch {}` / `2>$null` 吞错；禁止改测试凑通过；改动系统配置先备份 |
+| [`powershell-and-batch.md`](steering/powershell-and-batch.md) | `*.ps1` / `*.bat` | 默认兼容 **PowerShell 5.1**；规范 `.ps1` UTF-8 BOM 与 `.bat` ASCII+CRLF；每次改动运行 `PSScriptAnalyzer` |
+| [`windows-environment.md`](steering/windows-environment.md) | `always` | 禁止用 `pwsh -Command` / `cmd /c` 包装命令（避免弹窗）；CP936 乱码排查；防火墙与代理目录只读红线 |
+| [`personal-preferences.md`](steering/personal-preferences.md) | `always` | 简体中文回复（保留原路径与代码）；改动 ≥3 个文件或系统设置前先给方案；结项附验证命令与结果 |
 
 <details>
-<summary>📋 查看 <code>powershell-and-batch.md</code> 内置的 PowerShell 脚本自动验收命令</summary>
+<summary>📋 查看 <code>powershell-and-batch.md</code> 内置的 PowerShell 脚本校验命令</summary>
 
 ```powershell
 # 1. 语法解析检查
@@ -135,18 +134,11 @@ Invoke-ScriptAnalyzer -Path '<file>' -Settings @{
 
 ---
 
-## 🛡️ 纵深防御搭档：[AI-Net-Guard](https://github.com/YOIMIYA66/AI-Net-Guard)
+## 🛡️ 搭配 AI-Net-Guard 实现内核级网络保护
 
-因为 `permissions.yaml` 仅属于 Kiro 应用层的命令文本护栏，如果你在 Windows 11 上使用各类 AI 编程工具并搭配 TUN 代理，建议配合我的另一个开源项目在内核层建立真实的网络边界：
+因为 `permissions.yaml` 只管应用层命令文本，在 Windows 11 上搭配 TUN 代理时，推荐与我的另一个开源项目 **[AI-Net-Guard](https://github.com/YOIMIYA66/AI-Net-Guard)**（零驻留 Windows 11 内核 WFP 静态防火墙 & DNS/IPv6 防泄漏盾）配合使用。
 
-> **[YOIMIYA66/AI-Net-Guard](https://github.com/YOIMIYA66/AI-Net-Guard)** — *Zero-resident Windows 11 kernel WFP static firewall & DNS leak shield for AI coding tools and TUN proxies (Xray / sing-box / Hysteria2 / Mihomo)*
-
-| 防护层级 | 负责组件 | 防护目标 |
-| :--- | :--- | :--- |
-| **应用层护栏** | **Kiro Windows Autonomy** (`permissions.yaml` + `steering/`) | 阻止 AI 误读密钥、误删文件或擅自执行 `New-NetFirewallRule` / `Set-DnsClient*` / 修改 `C:/AI-Net-Guard/**` |
-| **内核层隔离** | **[AI-Net-Guard](https://github.com/YOIMIYA66/AI-Net-Guard)** (Windows 11 WFP) | 零内存驻留内核静态防火墙，阻断 TUN 崩溃回退直连、SMHNR DNS 泄露与未授权出站 |
-
-联动开启方式：在 [`settings/permissions.yaml`](settings/permissions.yaml) 的 `fs_write` 中取消注释即可保护其部署目录（并按需放开 `logs/**`）：
+只需在 [`settings/permissions.yaml`](settings/permissions.yaml) 的 `fs_write` 中取消注释其路径，即可防止 AI 在排障时擅自改写你的防火墙脚本与策略：
 
 ```yaml
       # Optional: Protect network guard & proxy runtime directories
@@ -159,82 +151,51 @@ Invoke-ScriptAnalyzer -Path '<file>' -Settings @{
 
 ---
 
-## 📦 分步手动安装指南 (Manual Installation)
+## 📦 手动安装
 
 > [!TIP]
-> 在覆盖之前，建议先对原有的 `%USERPROFILE%\.kiro\settings` 和 `%USERPROFILE%\.kiro\steering` 做时间戳备份。
-
-### 第 1 步：备份原有配置并克隆仓库
+> 覆盖前脚本会自动将你原有的 `settings` 与 `steering` 目录按时间戳备份到 `.bak-*`。
 
 ```powershell
+# 1. 备份原有配置
 $kiroDir = "$env:USERPROFILE\.kiro"
 $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 if (Test-Path "$kiroDir\settings") { Copy-Item -Recurse "$kiroDir\settings" "$kiroDir\settings.bak-$stamp" }
 if (Test-Path "$kiroDir\steering") { Copy-Item -Recurse "$kiroDir\steering" "$kiroDir\steering.bak-$stamp" }
 
+# 2. 克隆仓库并安装 permissions.yaml 与 steering 规范
 git clone https://github.com/YOIMIYA66/kiro-windows-autonomy.git
 cd kiro-windows-autonomy
+New-Item -ItemType Directory -Force -Path "$kiroDir\settings", "$kiroDir\steering" | Out-Null
+Copy-Item .\settings\permissions.yaml "$kiroDir\settings\permissions.yaml"
+Copy-Item .\steering\*.md "$kiroDir\steering\"
 ```
 
-### 第 2 步：安装 `permissions.yaml`
-
-```powershell
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.kiro\settings" | Out-Null
-Copy-Item .\settings\permissions.yaml "$env:USERPROFILE\.kiro\settings\permissions.yaml"
-```
-
-*(可选)* 打开 `%USERPROFILE%\.kiro\settings\permissions.yaml`，根据你本机实际目录取消注释或新增受保护路径（如 `C:/AI-Net-Guard/**` 或本地代理软件配置目录）。
-
-### 第 3 步：安装并定制 `steering/` 规范
-
-```powershell
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.kiro\steering" | Out-Null
-Copy-Item .\steering\*.md "$env:USERPROFILE\.kiro\steering\"
-```
-
-建议按需修改以下两份模板以匹配你的机器：
-- `%USERPROFILE%\.kiro\steering\windows-environment.md`：更新 `## Toolchain`（你的实际语言版本与包管理器）和 `## Protected locations`。
-- `%USERPROFILE%\.kiro\steering\personal-preferences.md`：调整回复语言（默认简体中文）或汇报格式偏好。
-
-### 第 4 步：*(可选)* 配置忽略清单与 MCP 环境变量
-
-参考 [`settings/kiroignore.example`](settings/kiroignore.example) 与 [`settings/mcp.example.json`](settings/mcp.example.json)：
-
-> [!NOTE]
-> [`settings/mcp.example.json`](settings/mcp.example.json) 使用了 `${CONTEXT7_API_KEY}` 变量展开。请先在系统/用户环境变量中设置 `CONTEXT7_API_KEY`；**首次使用未批准的环境变量时，Kiro 会弹出安全确认提示**，在弹窗中点击批准后即可正常使用。
+安装后建议按本机实际情况微调两处：
+- **定制环境信息**：修改 `%USERPROFILE%\.kiro\steering\windows-environment.md` 中的 `## Toolchain` 与 `## Protected locations`，并在 `permissions.yaml` 中按需取消注释受保护服务目录。
+- **配置 MCP（可选）**：如参考 [`settings/mcp.example.json`](settings/mcp.example.json) 使用 `${CONTEXT7_API_KEY}`，请先在环境变量中配置该 Key；**首次引用未批准的环境变量时，Kiro 会弹出安全确认提示，点击批准即可**。本地敏感数据库屏蔽可参考 [`settings/kiroignore.example`](settings/kiroignore.example)。
 
 ---
 
-## 📂 仓库目录索引
+## 📂 目录结构与回归测试
 
-| 路径 | 类型 | 说明 |
-| :--- | :--- | :--- |
-| [`settings/permissions.yaml`](settings/permissions.yaml) | 核心配置 | Kiro 用户级规则驱动权限策略（`all: allow` + `fs_read` / `fs_write` / `shell` `ask` 清单） |
-| [`settings/kiroignore.example`](settings/kiroignore.example) | 参考模板 | 屏蔽代理节点数据库（`guiNDB.db*`）与本地证书密钥文件 |
-| [`settings/mcp.example.json`](settings/mcp.example.json) | 参考模板 | 使用 `${CONTEXT7_API_KEY}` 环境变量鉴权的 MCP 示例 |
-| [`steering/engineering-principles.md`](steering/engineering-principles.md) | Steering | 通用工程诊断、错误处理、Git 与安全准则 |
-| [`steering/powershell-and-batch.md`](steering/powershell-and-batch.md) | Steering | PowerShell 5.1 兼容性、BOM / CP936 编码与校验规范 |
-| [`steering/windows-environment.md`](steering/windows-environment.md) | Steering | Windows 11 + `pwsh` 环境约束与只读边界模板 |
-| [`steering/personal-preferences.md`](steering/personal-preferences.md) | Steering | 回复语言、Plan-First 阈值与结项报告格式 |
-| [`tests/test_permissions.py`](tests/test_permissions.py) | 回归测试 | 验证 YAML 结构、`sandbox_network` 排除、凭据对称性与高危命令匹配 |
-| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | CI 工作流 | 每次 push / PR 至 `main` 自动执行回归测试 |
+```text
+.
+├── .github/workflows/ci.yml           # GitHub Actions 回归测试 CI
+├── settings/
+│   ├── permissions.yaml               # Kiro 用户级权限策略（核心）
+│   ├── kiroignore.example             # 代理节点数据库 / 证书密钥忽略模板
+│   └── mcp.example.json               # 使用环境变量鉴权的 MCP 配置示例
+├── steering/                          # Windows / PowerShell / 工程与交互规范
+└── tests/test_permissions.py          # 权限规则匹配与语法回归测试（9 项用例）
+```
 
----
-
-## 🧪 规则校验与回归测试 (Regression Tests)
-
-每次增删或修改 `permissions.yaml` 后，建议运行自动化回归测试（依赖 `PyYAML`）：
+修改 `permissions.yaml` 后运行自动化校验（依赖 `PyYAML`）：
 
 ```powershell
 python -m pip install pyyaml
 python -B -m unittest discover -s tests -v
 ```
-
-测试脚本 [`tests/test_permissions.py`](tests/test_permissions.py) 按 `deny > ask > allow > evaluate` 与大小写敏感 glob 语义验证：
-- YAML 语法与 `approve-for-me` 基线策略完整性；
-- `capability: all` 正确排除 `sandbox_network`；
-- `fs_read` 与 `fs_write` 对 `.ssh` / `.aws` / `.kube` / `.env` / GitHub CLI 等凭据保护的一致性；
-- PowerShell 常见全小写镜像、`cmd /c` & `/C` 包装命令、`git` 破坏性命令放行/拦截边界，以及已知 Kiro 限制文档一致性。
 
 ---
 
