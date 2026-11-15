@@ -63,7 +63,7 @@ Kiro 按 **`deny > ask > allow > evaluate`** 优先级裁决工具调用。本�
 
 ```mermaid
 flowchart LR
-    Call(["⚡ Kiro 工具调用"])
+    Call["⚡Kiro工具调用"]
 
     subgraph Guardrails ["🛡️ permissions.yaml 三维护栏"]
         direction TB

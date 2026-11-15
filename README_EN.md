@@ -63,7 +63,7 @@ Kiro resolves tool calls with **`deny > ask > allow > evaluate`** precedence. No
 
 ```mermaid
 flowchart LR
-    Call(["⚡ Kiro Tool Call"])
+    Call["⚡Kiro·Tool·Call"]
 
     subgraph Guardrails ["🛡️ permissions.yaml 3-Layer Guardrails"]
         direction TB
