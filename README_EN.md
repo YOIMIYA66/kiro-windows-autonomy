@@ -63,14 +63,31 @@ Kiro resolves tool calls with **`deny > ask > allow > evaluate`** precedence. No
 
 ```mermaid
 flowchart LR
-    Call(["⚡ Kiro Tool Call"]) --> Check{"Matches Risky Rule?"}
-    Check -- "Matched" --> Ask["🛑 Prompt User (ask)"]
-    Check -- "Unmatched" --> Allow["✅ Run Silently (allow)"]
-    Call -. "sandbox_network" .-> Eval["🔍 Default Classifier (evaluate)"]
+    Call(["⚡ Kiro Tool Call"])
 
+    subgraph Guardrails ["🛡️ permissions.yaml 3-Layer Guardrails"]
+        direction TB
+        R["🔑 fs_read\nKeys · .env · Credentials"]
+        W["💾 fs_write\nSecrets · Windows OS Dirs"]
+        S["💻 shell\nDelete · Registry · Firewall · Force Git\n+ Lowercase Mirrors & Wrappers"]
+    end
+
+    Ask["🛑 Prompt User (ask)\nHigh-Priority Stop"]
+    Allow["✅ Run Silently (allow)\nNormal Code · Builds · Read-Only"]
+    Eval["🔍 Default Classifier (evaluate)\nExcluded from all: allow"]
+
+    Call -- "Matches Guardrail" --> Guardrails
+    Guardrails --> Ask
+    Call -- "Unmatched · Baseline all: allow" --> Allow
+    Call -. "sandbox_network" .-> Eval
+
+    classDef entryStyle fill:#1e293b,stroke:#3b82f6,stroke-width:2px,color:#ffffff
+    classDef guardStyle fill:#eff6ff,stroke:#3b82f6,stroke-width:1.5px,color:#1e3a8a
     classDef askStyle fill:#991b1b,stroke:#ef4444,stroke-width:2px,color:#ffffff
     classDef allowStyle fill:#065f46,stroke:#10b981,stroke-width:2px,color:#ffffff
     classDef evalStyle fill:#334155,stroke:#94a3b8,stroke-width:1.5px,color:#ffffff
+    class Call entryStyle
+    class R,W,S guardStyle
     class Ask askStyle
     class Allow allowStyle
     class Eval evalStyle
