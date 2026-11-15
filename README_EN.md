@@ -36,18 +36,11 @@
 Already using **Kiro** (or another local coding agent)? Copy the prompt below and send it to your agent to **back up your existing `~/.kiro` setup → pull this repo → adapt it to your machine → run tests**:
 
 ```text
-Please install and adapt the Kiro Windows configuration from https://github.com/YOIMIYA66/kiro-windows-autonomy for my machine in this order:
-
-1. Back up my existing `%USERPROFILE%\.kiro\settings` and `%USERPROFILE%\.kiro\steering` (if present) with a `.bak-YYYYMMDD` suffix and tell me how to roll back.
-2. Clone `https://github.com/YOIMIYA66/kiro-windows-autonomy.git` into a temporary directory (e.g. `%USERPROFILE%\.kiro\_upstream-kiro-windows-autonomy`).
-3. Copy `settings/permissions.yaml` to `%USERPROFILE%\.kiro\settings\permissions.yaml`:
-   - Keep all default guardrail rules.
-   - Ask me if I have any local firewall/proxy directories I want protected before uncommenting or adding paths under `fs_write`.
-4. Copy `steering/*.md` to `%USERPROFILE%\.kiro\steering\`:
-   - Inspect the toolchain actually installed on my machine (Git, Go, Python/uv/conda, Node.js/pnpm, .NET, Java, PSScriptAnalyzer, etc.) and customize `steering/windows-environment.md` accordingly (do not list tools that are missing, and never include any keys, tokens, or proxy node/subscription data).
-   - Check with me whether to keep or adjust the reply language rule in `steering/personal-preferences.md` (default is Simplified Chinese).
-5. If I use `mcp.json` or need local ignore rules, explain how to adapt `settings/kiroignore.example` and `settings/mcp.example.json` (and note that referencing `${CONTEXT7_API_KEY}` triggers a one-time Kiro approval prompt).
-6. Run `python -B -m unittest discover -s tests -v` inside the cloned repo (check/install `pyyaml` in a venv or ask first if missing), validate YAML syntax on `%USERPROFILE%\.kiro\settings\permissions.yaml`, and report backup paths, changed files, and test output.
+Please install and adapt https://github.com/YOIMIYA66/kiro-windows-autonomy for my Windows machine:
+1. Back up my existing `%USERPROFILE%\.kiro\settings` and `steering` folders as `.bak-YYYYMMDD`.
+2. Clone the repo and install `settings/permissions.yaml` and `steering/*.md` into `%USERPROFILE%\.kiro\`.
+3. Inspect my actually installed toolchain (Git/Go/Python/Node/etc.) to customize `windows-environment.md` (no missing tools or secrets), confirm any extra protected directories and reply-language preference with me, and remind me about `${CONTEXT7_API_KEY}` first-use approval if using MCP.
+4. Run `python -B -m unittest discover -s tests -v`, validate the installed YAML syntax, and report backup paths, changed files, and test results.
 ```
 
 ---
@@ -70,17 +63,31 @@ Kiro resolves tool calls with **`deny > ask > allow > evaluate`** precedence. No
 
 ```mermaid
 flowchart LR
-    Call(["⚡ Kiro Tool Call"]) --> Check{"Matches High-Risk Rule?"}
-    Check -- "Yes · Secrets / OS Dirs / Risky Cmds" --> Ask["🛑 Prompt User (ask)"]
-    Check -- "No · Normal Code / Builds / Read-Only" --> Allow["✅ Run Silently (allow)"]
+    Call(["⚡ Kiro Tool Call"]) --> Check{"Matches Risky Rule?"}
+    Check -- "Matched" --> Ask["🛑 Prompt User (ask)"]
+    Check -- "Unmatched" --> Allow["✅ Run Silently (allow)"]
     Call -. "sandbox_network" .-> Eval["🔍 Default Classifier (evaluate)"]
 
-    classDef askStyle fill:#fef2f2,stroke:#ef4444,stroke-width:2px,color:#991b1b
-    classDef allowStyle fill:#ecfdf5,stroke:#10b981,stroke-width:2px,color:#065f46
-    classDef evalStyle fill:#f8fafc,stroke:#64748b,stroke-width:1.5px,color:#334155
+    classDef askStyle fill:#991b1b,stroke:#ef4444,stroke-width:2px,color:#ffffff
+    classDef allowStyle fill:#065f46,stroke:#10b981,stroke-width:2px,color:#ffffff
+    classDef evalStyle fill:#334155,stroke:#94a3b8,stroke-width:1.5px,color:#ffffff
     class Ask askStyle
     class Allow allowStyle
     class Eval evalStyle
+```
+
+### ⚡ In Action
+
+```powershell
+# ✅ Runs silently (zero prompt interruptions)
+git status; git diff; git restore --staged .
+go test ./...; pytest; Get-NetFirewallRule
+
+# 🛑 Stops and prompts for confirmation (ask)
+cat ~/.ssh/id_ed25519        # Reading private keys
+remove-item -recurse ./src   # Deleting files (lowercase bypass mitigated)
+git reset --hard HEAD~1      # Discarding working-tree history
+cmd /C "del /f /q *"         # Inline interpreter wrapper
 ```
 
 ---

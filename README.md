@@ -36,18 +36,11 @@
 如果你正在使用 **Kiro**（或其他本地 AI 编程助手），直接复制下方提示词发给它，即可自动完成**备份原有配置 → 拉取仓库 → 按本机环境定制 → 校验测试**：
 
 ```text
-请帮我安装并适配 https://github.com/YOIMIYA66/kiro-windows-autonomy 仓库中的 Kiro Windows 配置，按以下顺序执行：
-
-1. 先备份我现有的 `%USERPROFILE%\.kiro\settings` 和 `%USERPROFILE%\.kiro\steering`（如果存在），备份目录命名为 `.bak-YYYYMMDD` 并告诉我回滚方式。
-2. 将 `https://github.com/YOIMIYA66/kiro-windows-autonomy.git` 克隆到临时目录（例如 `%USERPROFILE%\.kiro\_upstream-kiro-windows-autonomy`）。
-3. 复制 `settings/permissions.yaml` 到 `%USERPROFILE%\.kiro\settings\permissions.yaml`：
-   - 保留所有默认护栏规则。
-   - 检查我本机是否有需要额外保护的目录（例如防火墙/代理脚本目录），先向我确认后再取消注释或添加到 `fs_write` 规则中。
-4. 复制 `steering/*.md` 到 `%USERPROFILE%\.kiro\steering\`：
-   - 检测我本机实际安装的工具链（Git、Go、Python/uv/conda、Node.js/pnpm、.NET、Java、PSScriptAnalyzer 等版本与路径）和当前代理设置，据此定制 `steering/windows-environment.md`（不要把未安装的软件写进去，也不要泄露或写入任何密钥/节点/订阅数据）。
-   - 检查 `steering/personal-preferences.md` 是否符合我的回复语言偏好。
-5. 如果我使用了 `mcp.json` 或需要忽略本地敏感数据库，向我说明如何参考 `settings/kiroignore.example` 和 `settings/mcp.example.json`（注意 `${CONTEXT7_API_KEY}` 等环境变量首次使用会在 Kiro 中触发审批提示）。
-6. 在仓库目录运行 `python -B -m unittest discover -s tests -v`（如缺少 PyYAML 请先询问我或使用虚拟环境），并对安装后的 `%USERPROFILE%\.kiro\settings\permissions.yaml` 做一次 YAML 语法校验，最后向我汇报：备份位置、修改/复制了哪些文件、测试与校验结果。
+请帮我安装并适配 https://github.com/YOIMIYA66/kiro-windows-autonomy 的 Kiro Windows 配置：
+1. 先将我现有的 `%USERPROFILE%\.kiro\settings` 和 `steering` 备份为 `.bak-YYYYMMDD`。
+2. 克隆该仓库，安装 `settings/permissions.yaml` 和 `steering/*.md` 到 `%USERPROFILE%\.kiro\`。
+3. 检测我本机实际安装的工具链（Git/Go/Python/Node 等）并定制 `windows-environment.md`（勿写入密钥或缺失工具），向我确认是否需要保护特定服务目录及回复语言偏好；如用到 MCP，提醒我 `${CONTEXT7_API_KEY}` 的首次审批提示。
+4. 运行 `python -B -m unittest discover -s tests -v` 并校验安装后的 YAML 语法，最后向我汇报备份路径、改动文件与测试结果。
 ```
 
 ---
@@ -70,17 +63,31 @@ Kiro 按 **`deny > ask > allow > evaluate`** 优先级裁决工具调用。本�
 
 ```mermaid
 flowchart LR
-    Call(["⚡ Kiro 工具调用"]) --> Check{"命中高危拦截规则?"}
-    Check -- "是 · 密钥 / 系统目录 / 高危命令" --> Ask["🛑 弹窗确认 (ask)"]
-    Check -- "否 · 日常读写 / 构建 / 只读查询" --> Allow["✅ 静默放行 (allow)"]
+    Call(["⚡ Kiro 工具调用"]) --> Check{"命中高危规则?"}
+    Check -- "命中" --> Ask["🛑 弹窗确认 (ask)"]
+    Check -- "未命中" --> Allow["✅ 静默放行 (allow)"]
     Call -. "sandbox_network" .-> Eval["🔍 默认分类器 (evaluate)"]
 
-    classDef askStyle fill:#fef2f2,stroke:#ef4444,stroke-width:2px,color:#991b1b
-    classDef allowStyle fill:#ecfdf5,stroke:#10b981,stroke-width:2px,color:#065f46
-    classDef evalStyle fill:#f8fafc,stroke:#64748b,stroke-width:1.5px,color:#334155
+    classDef askStyle fill:#991b1b,stroke:#ef4444,stroke-width:2px,color:#ffffff
+    classDef allowStyle fill:#065f46,stroke:#10b981,stroke-width:2px,color:#ffffff
+    classDef evalStyle fill:#334155,stroke:#94a3b8,stroke-width:1.5px,color:#ffffff
     class Ask askStyle
     class Allow allowStyle
     class Eval evalStyle
+```
+
+### ⚡ 实际效果速览
+
+```powershell
+# ✅ 全程静默执行（零弹窗打扰）
+git status; git diff; git restore --staged .
+go test ./...; pytest; Get-NetFirewallRule
+
+# 🛑 自动刹车并弹窗确认（ask）
+cat ~/.ssh/id_ed25519        # 读取敏感私钥
+remove-item -recurse ./src   # 删除文件（含全小写绕过缓解）
+git reset --hard HEAD~1      # 抹除工作区历史
+cmd /C "del /f /q *"         # 内联解释器包装调用
 ```
 
 ---
