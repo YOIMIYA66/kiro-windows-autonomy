@@ -1,0 +1,327 @@
+# Kiro user-level permissions (v5)
+# Target: ~/.kiro/settings/permissions.yaml (%USERPROFILE%\.kiro\settings\permissions.yaml)
+#
+# Model: allow everything (except sandbox_network), then carve out "ask" rules.
+# Priority is deny > ask > allow > evaluate, so every ask below wins over the
+# blanket allow. Because "all: allow" settles every action, Approve for me's
+# classifier (evaluate) is never consulted: this is rule-driven autonomy.
+#
+# Limits (convenience guardrail against accidental actions, NOT a security boundary):
+#   - Shell rules match the command text only (case-sensitive glob).
+#     Lowercase mirrors mitigate the common all-lowercase case (`set-acl`),
+#     but arbitrary mixed-case variants (`sEt-aCl`, `cMd /C`), full-path or
+#     aliased binaries, and scripts (`powershell -File x.ps1`, .bat, .py)
+#     are not intercepted.
+#   - Parameters passed through variables ($k = 'HKLM:\...'; Set-Acl $k ...)
+#     only match by cmdlet name, not by target.
+#   - Kiro's own invariants (.git/**, .vscode/**, .kiro agents/hooks/...) still ask.
+
+rules:
+  # ---------------------------------------------------------------- baseline
+  - capability: all
+    effect: allow
+
+  # ---------------------------------------------------------------- file writes
+  # fs_write is a separate capability: shell ask rules do not cover it.
+  - capability: fs_write
+    effect: ask
+    match:
+      # Secrets and credentials
+      - "**/.env"
+      - "**/.env.*"
+      - "**/*.pem"
+      - "**/*.key"
+      - "**/*.pfx"
+      - "**/*.p12"
+      - "~/.ssh/**"
+      - "~/.aws/**"
+      - "~/.gitconfig"
+      - "**/.git-credentials"
+      - "~/AppData/Roaming/GitHub CLI/**"
+      - "~/.config/gh/**"
+      - "~/.docker/config.json"
+      - "~/.kube/**"
+      # Operating system and installed software
+      - "C:/Windows/**"
+      - "C:/Program Files/**"
+      - "C:/Program Files (x86)/**"
+      - "C:/ProgramData/**"
+      # Optional: Protect network guard & proxy runtime directories
+      # (e.g. if using https://github.com/YOIMIYA66/AI-Net-Guard)
+      # - "C:/AI-Net-Guard/**"
+      # - "C:/path/to/proxy-client/bin/**"
+      # - "C:/path/to/proxy-client/guiConfigs/**"
+    exclude:
+      - "**/.env.example"
+      # - "C:/AI-Net-Guard/logs/**"
+
+  # ---------------------------------------------------------------- file reads
+  # Reading private keys is rarely needed and pairs badly with web access.
+  - capability: fs_read
+    effect: ask
+    match:
+      - "~/.ssh/**"
+      - "~/.aws/**"
+      - "**/*.pem"
+      - "**/*.key"
+      - "**/*.pfx"
+      - "**/*.p12"
+      - "**/.env"
+      - "**/.env.*"
+      - "**/.git-credentials"
+      - "~/AppData/Roaming/GitHub CLI/**"
+      - "~/.config/gh/**"
+      - "~/.docker/config.json"
+      - "~/.kube/**"
+    exclude:
+      - "**/.env.example"
+
+  # ---------------------------------------------------------------- shell
+  - capability: shell
+    effect: ask
+    match:
+      # Destructive file operations
+      - "rm *"
+      - "del *"
+      - "erase *"
+      - "rd *"
+      - "rmdir *"
+      - "Remove-Item *"
+      - "remove-item *"
+      - "ri *"
+      - "Clear-Content *"
+      - "clear-content *"
+      - "Clear-RecycleBin*"
+      - "cipher *"
+      - "robocopy * /MIR*"
+      - "robocopy * /PURGE*"
+
+      # Disks, boot, backups and machine power
+      - "format *"
+      - "Format-Volume *"
+      - "Clear-Disk *"
+      - "Initialize-Disk *"
+      - "diskpart*"
+      - "bcdedit*"
+      - "vssadmin delete *"
+      - "wbadmin delete *"
+      - "wevtutil cl *"
+      - "shutdown*"
+      - "Stop-Computer*"
+      - "Restart-Computer*"
+
+      # Registry and ACL
+      - "reg add *"
+      - "reg.exe add *"
+      - "reg delete *"
+      - "reg.exe delete *"
+      - "reg import *"
+      - "reg restore *"
+      - "Set-ItemProperty *"
+      - "New-ItemProperty *"
+      - "Remove-ItemProperty *"
+      - "remove-itemproperty *"
+      - "Set-Acl *"
+      - "icacls *"
+      - "takeown *"
+
+      # Services, scheduled tasks, accounts
+      - "sc config *"
+      - "sc.exe config *"
+      - "sc stop *"
+      - "sc.exe stop *"
+      - "sc delete *"
+      - "sc.exe delete *"
+      - "Set-Service *"
+      - "Stop-Service *"
+      - "Restart-Service *"
+      - "Remove-Service *"
+      - "net stop *"
+      - "net user *"
+      - "net localgroup *"
+      - "schtasks /delete *"
+      - "schtasks /change *"
+      - "Unregister-ScheduledTask *"
+      - "Disable-ScheduledTask *"
+
+      # Firewall (protects host firewall & WFP rules such as AI-Net-Guard)
+      - "New-NetFirewallRule *"
+      - "Set-NetFirewallRule *"
+      - "Set-NetFirewallAddressFilter *"
+      - "New-NetFirewallAddressFilter *"
+      - "Set-NetFirewallPortFilter *"
+      - "Remove-NetFirewallRule *"
+      - "Disable-NetFirewallRule *"
+      - "Set-NetFirewallProfile *"
+      - "netsh advfirewall firewall add *"
+      - "netsh advfirewall firewall set *"
+      - "netsh advfirewall firewall delete *"
+      - "netsh advfirewall set *"
+      - "netsh advfirewall reset*"
+      - "netsh advfirewall import *"
+
+      # DNS, IP, routes, adapters, proxy (read-only "show"/Get-* stay silent)
+      - "Set-DnsClientServerAddress *"
+      - "Set-DnsClient *"
+      - "Add-DnsClientNrptRule *"
+      - "Remove-DnsClientNrptRule *"
+      - "Set-DnsClientNrptRule *"
+      - "Set-NetIPInterface *"
+      - "New-NetIPAddress *"
+      - "Remove-NetIPAddress *"
+      - "New-NetRoute *"
+      - "Set-NetRoute *"
+      - "Remove-NetRoute *"
+      - "route add *"
+      - "route delete *"
+      - "route change *"
+      - "Set-NetAdapter *"
+      - "Enable-NetAdapter *"
+      - "Restart-NetAdapter *"
+      - "Disable-NetAdapter *"
+      - "Enable-NetAdapterBinding *"
+      - "Disable-NetAdapterBinding *"
+      - "Set-NetPrefixPolicy *"
+      - "netsh interface * set *"
+      - "netsh interface * add *"
+      - "netsh interface * delete *"
+      - "netsh int * set *"
+      - "netsh int * add *"
+      - "netsh int * delete *"
+      - "netsh winhttp set *"
+      - "netsh winhttp reset *"
+      - "netsh * reset*"
+
+      # Git: history rewrites and remote destruction
+      - "git reset --hard*"
+      - "git clean *"
+      - "git checkout -- *"
+      - "git branch -D *"
+      - "git push --force*"
+      - "git push -f*"
+      - "git push * --force*"
+      - "git push * -f*"
+      - "git push --mirror*"
+      - "git push * --mirror*"
+      - "git push * --delete *"
+      - "git filter-repo*"
+      - "git filter-branch*"
+      - "git reflog expire*"
+      - "git stash clear*"
+      - "git stash drop*"
+      # --staged combined with --worktree also rewrites working-tree files
+      - "git restore --worktree *"
+      - "git restore * --worktree*"
+      - "git restore -W *"
+      - "git restore * -W*"
+
+      # Publishing and remote deletion
+      - "npm publish*"
+      - "gh repo delete*"
+      - "gh release delete*"
+
+      # Process termination
+      - "taskkill *"
+      - "Stop-Process *"
+      - "stop-process *"
+
+      # Elevation (UAC also prompts at OS level)
+      - "Start-Process *RunAs*"
+      - "Start-Process *runas*"
+
+      # Interpreter wrappers with inline/encoded commands: their payload
+      # cannot be checked against the rules above, so ask.
+      - "powershell *-Command *"
+      - "powershell *-c *"
+      - "powershell *-EncodedCommand *"
+      - "powershell *-enc *"
+      - "powershell.exe *-Command *"
+      - "powershell.exe *-c *"
+      - "powershell.exe *-EncodedCommand *"
+      - "powershell.exe *-enc *"
+      - "pwsh *-Command *"
+      - "pwsh *-c *"
+      - "pwsh *-EncodedCommand *"
+      - "pwsh *-enc *"
+      - "pwsh.exe *-Command *"
+      - "pwsh.exe *-c *"
+      - "pwsh.exe *-EncodedCommand *"
+      - "pwsh.exe *-enc *"
+      - "cmd /c *"
+      - "cmd.exe /c *"
+      - "cmd /k *"
+      - "cmd.exe /k *"
+
+  # git restore discards working-tree edits, except when only unstaging.
+  - capability: shell
+    effect: ask
+    match:
+      - "git restore *"
+    exclude:
+      - "git restore --staged *"
+
+  # Shell matching is case-sensitive (verified: lowercase set-acl ran without a prompt
+  # while Set-Acl * is listed). PowerShell and cmd ignore case, so mirror the standard
+  # lowercase PowerShell cmdlets and common cmd /C, /K flags below to mitigate
+  # routine case mismatches (arbitrary mixed-case variants remain a Kiro limitation).
+  - capability: shell
+    effect: ask
+    match:
+      - "clear-recyclebin*"
+      - "robocopy * /mir*"
+      - "robocopy * /purge*"
+      - "format-volume *"
+      - "clear-disk *"
+      - "initialize-disk *"
+      - "stop-computer*"
+      - "restart-computer*"
+      - "set-itemproperty *"
+      - "new-itemproperty *"
+      - "set-acl *"
+      - "set-service *"
+      - "stop-service *"
+      - "restart-service *"
+      - "remove-service *"
+      - "unregister-scheduledtask *"
+      - "disable-scheduledtask *"
+      - "new-netfirewallrule *"
+      - "set-netfirewallrule *"
+      - "set-netfirewalladdressfilter *"
+      - "new-netfirewalladdressfilter *"
+      - "set-netfirewallportfilter *"
+      - "remove-netfirewallrule *"
+      - "disable-netfirewallrule *"
+      - "set-netfirewallprofile *"
+      - "set-dnsclientserveraddress *"
+      - "set-dnsclient *"
+      - "add-dnsclientnrptrule *"
+      - "remove-dnsclientnrptrule *"
+      - "set-dnsclientnrptrule *"
+      - "set-netipinterface *"
+      - "new-netipaddress *"
+      - "remove-netipaddress *"
+      - "new-netroute *"
+      - "set-netroute *"
+      - "remove-netroute *"
+      - "set-netadapter *"
+      - "enable-netadapter *"
+      - "restart-netadapter *"
+      - "disable-netadapter *"
+      - "enable-netadapterbinding *"
+      - "disable-netadapterbinding *"
+      - "set-netprefixpolicy *"
+      - "start-process *runas*"
+      - "powershell *-command *"
+      - "powershell *-encodedcommand *"
+      - "powershell.exe *-command *"
+      - "powershell.exe *-encodedcommand *"
+      - "pwsh *-command *"
+      - "pwsh *-encodedcommand *"
+      - "pwsh.exe *-command *"
+      - "pwsh.exe *-encodedcommand *"
+      - "cmd /C *"
+      - "cmd.exe /C *"
+      - "cmd /K *"
+      - "cmd.exe /K *"
+policies:
+  - approve-for-me

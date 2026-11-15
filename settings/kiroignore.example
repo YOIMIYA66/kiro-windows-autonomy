@@ -1,0 +1,6 @@
+# Ignore local proxy subscription and node databases or sensitive local files
+guiNDB.db*
+*.pem
+*.key
+*.pfx
+*.p12
